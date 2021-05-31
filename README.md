@@ -1,5 +1,9 @@
 # representationalAxialNet
+### Preparation
+
+```shell
 pip install tensorboardX
-# mkdir data
+mkdir data
 cd data
 ln -s path/to/dataset imagenet
+```
