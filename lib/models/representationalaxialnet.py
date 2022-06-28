@@ -37,9 +37,6 @@ class RepresentationalAxialAttention(nn.Module):
                                            padding=0, bias=False)
         self.bn_qkv = nn.BatchNorm1d(out_planes * 2)
         self.bn_similarity = nn.BatchNorm2d(groups * 3)
-        #self.bn_qk = nn.BatchNorm2d(groups)
-        #self.bn_qr = nn.BatchNorm2d(groups)
-        #self.bn_kr = nn.BatchNorm2d(groups)
         self.bn_output = nn.BatchNorm1d(out_planes * 2)
 
         # Position embedding
@@ -68,13 +65,11 @@ class RepresentationalAxialAttention(nn.Module):
         # Calculate position embedding
         all_embeddings = torch.index_select(self.relative, 1, self.flatten_index).view(self.group_planes * 2, self.kernel_size, self.kernel_size)
         q_embedding, k_embedding, v_embedding = torch.split(all_embeddings, [self.group_planes // 2, self.group_planes // 2, self.group_planes], dim=0)
-        #print(q.shape,q_embedding.shape)
         qr = torch.einsum('bgci,cij->bgij', q, q_embedding)
         kr = torch.einsum('bgci,cij->bgij', k, k_embedding).transpose(2, 3)
         qk = torch.einsum('bgci, bgcj->bgij', q, k)
         stacked_similarity = torch.cat([qk, qr, kr], dim=1)
         stacked_similarity = self.bn_similarity(stacked_similarity).view(N * W, 3, self.groups, H, H).sum(dim=1)
-        #stacked_similarity = self.bn_qr(qr) + self.bn_kr(kr) + self.bn_qk(qk)
         # (N, groups, H, H, W)
         similarity = F.softmax(stacked_similarity, dim=3)
         sv = torch.einsum('bgij,bgcj->bgci', similarity, v)
@@ -89,7 +84,6 @@ class RepresentationalAxialAttention(nn.Module):
 
         if self.stride > 1:
             output = self.pooling(output)
-
         return output
 
     def reset_parameters(self):
@@ -162,8 +156,6 @@ class AxialRepresentationalNet(nn.Module):
         self.inplanes = int(128 * s)
         self.dilation = 1
         if replace_stride_with_dilation is None:
-            # each element in the tuple indicates if we should replace
-            # the 2x2 stride with a dilated convolution instead
             replace_stride_with_dilation = [False, False, False]
         if len(replace_stride_with_dilation) != 3:
             raise ValueError("replace_stride_with_dilation should be None "
@@ -195,9 +187,6 @@ class AxialRepresentationalNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-        # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, AxialRepresentationalBlock):
