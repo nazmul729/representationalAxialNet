@@ -107,7 +107,6 @@ class AxialRepresentationalBlock(nn.Module):
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         width = int(planes * (base_width / 64.))
-        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         
         self.conv_down = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
@@ -124,37 +123,28 @@ class AxialRepresentationalBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x):
-        identity = x  #print("I/P: ",x.shape) #[10, 32, 56, 56]
+        identity = x  
         
         out = self.conv_down(x)
         out = self.bn1(out)
         out = self.relu(out)   
-
-        
-        # display tensor
-        #a = torch.Tensor(myOut).cuda()
-        #to_img(a)
-        
-        #imgs = torch.randn(64, 21, 21) 
         
         out = self.quaternion(out)
-        out = self.bnQuat(out)     #print("After Quat: ",out.shape)  #[10, 64, 56, 56]
+        out = self.bnQuat(out)     
         
         out = self.hight_block(out)
         out = self.width_block(out)
-        out = self.relu(out)       #print("After Attention: ",out.shape) #[10, 64, 56, 56]
-        
-        
+        out = self.relu(out)      
         
         out = self.conv_up(out)
-        out = self.bn2(out)       #print("After Conv2: ",out.shape) #[10, 128, 56, 56]
+        out = self.bn2(out)       
         
         if self.downsample is not None:            
             identity = self.downsample(x)
         #out += quat
         
         out += identity
-        out = self.relu(out)  #print("Before Return: ",out.shape) #[10, 128, 56, 56]
+        out = self.relu(out)  
         return out
 
 
@@ -242,66 +232,20 @@ class AxialRepresentationalNet(nn.Module):
         return nn.Sequential(*layers)
 
     def _forward_impl(self, x):
-        '''
-        myOut = x[-1,:,:,:]
-        print(myOut.shape)
-        #imgs = torchvision.utils.make_grid(myOut.unsqueeze(1))
-        #print(imgs.shape) #[64,56,56] to [3, 466, 466] 
-        imgs = myOut.permute(1,2,0)
-        np_array = imgs.cpu().detach().numpy()
-        #np_array = numpy.uint8(imgs.cpu().detach().numpy().transpose(1, 2, 0))
-        #np_array = np_array *255
-        img = Image.fromarray(np_array,'RGB')
-        f_n = 'after1st_conv'+ str(self.count) +'.png'
-        self.count = self.count+1
-        img.save(f_n)
-        img.show()
-        '''
-        
-        # See note [TorchScript super()]
         x = self.conv1(x)
-        #print("after Conv1/stem: ",x.shape)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        #print("after Maxpool: ",x.shape)
-        
         
         x = self.layer1(x)  
-        #print("after Layer-1: ",x.shape)
-        
-        
-        x = self.layer2(x)  
-        #print("after Layer-2: ",x.shape)
+        x = self.layer2(x) 
         x = self.layer3(x)  
-        #print("after Layer-3: ",x.shape)
         x = self.layer4(x)  
-        #print("after Layer-4: ",x.shape)
-        '''
-        myOut = x[-1,:,:,:]
-        print(myOut.shape)
-        imgs = torchvision.utils.make_grid(myOut.unsqueeze(1))
-        print(imgs.shape) #[64,56,56] to [3, 466, 466] 
-        imgs = imgs.permute(1,2,0)
-        np_array = imgs.cpu().detach().numpy()
-        #np_array = numpy.uint8(imgs.cpu().detach().numpy().transpose(1, 2, 0))
-        #np_array = np_array *255
-        img = Image.fromarray(np_array,'RGB')
-        f_n = 'after1st_conv'+ str(self.count) +'.png'
-        self.count = self.count+1
-        img.save(f_n)
-        img.show()
-        '''
         
         x = self.avgpool(x) 
-        #print("after Avg pool: ",x.shape)
-        
         x = torch.flatten(x, 1) 
-        #print("after flatten: ",x.shape)
         x = self.fc(x)      
-        #print("after fc: ",x.shape)
-        
-        
+       
         return x
 
     def forward(self, x):
